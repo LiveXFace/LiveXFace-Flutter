@@ -106,6 +106,28 @@ class FrApiClient {
     }
   }
 
+  /// Multipart POST with multiple image files (async batch registration).
+  Future<Map<String, dynamic>> _postMultipartFiles(
+    String path,
+    List<http.MultipartFile> files, {
+    Map<String, String>? fields,
+  }) async {
+    try {
+      final req = http.MultipartRequest('POST', _uri(path))
+        ..headers.addAll(_headers)
+        ..files.addAll(files);
+      if (fields != null) req.fields.addAll(fields);
+
+      final streamed = await _http.send(req);
+      final res = await http.Response.fromStream(streamed);
+      return _handle(res);
+    } on FrApiException {
+      rethrow;
+    } catch (e) {
+      throw FrNetworkException('POST $path (multipart) failed', e);
+    }
+  }
+
   Future<void> _delete(String path, [Map<String, String>? query]) async {
     try {
       final res = await _http.delete(_uri(path, query), headers: _headers);
@@ -304,4 +326,50 @@ class FacesApi {
         '/collections/$collectionId/faces',
         {'external_id': externalId},
       );
+
+  /// Submit up to 100 faces for asynchronous registration.
+  ///
+  /// Returns the created job immediately; poll [getBatchJob] until
+  /// [BatchJob.isFinished].
+  Future<BatchJob> batchRegisterAsync({
+    required String collectionId,
+    required List<BatchRegisterItem> items,
+  }) async {
+    final files = <http.MultipartFile>[];
+    final entries = <Map<String, dynamic>>[];
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      final filename = item.filename ?? '${item.externalId}.jpg';
+      final mime =
+          lookupMimeType(filename, headerBytes: item.image) ?? 'image/jpeg';
+      files.add(http.MultipartFile.fromBytes(
+        'images[$i]',
+        item.image,
+        filename: filename,
+        contentType: _client._mediaType(mime),
+      ));
+      entries.add({
+        'external_id': item.externalId,
+        'metadata': item.metadata ?? <String, dynamic>{},
+      });
+    }
+
+    final data = await _client._postMultipartFiles(
+      '/collections/$collectionId/faces/batch-async',
+      files,
+      fields: {'entries': jsonEncode(entries)},
+    );
+    return BatchJob.fromJson(data);
+  }
+
+  /// Fetch the status (and, when available, per-image results) of an async
+  /// batch registration job.
+  Future<BatchJob> getBatchJob({
+    required String collectionId,
+    required String jobId,
+  }) async {
+    final data =
+        await _client._get('/collections/$collectionId/batch/$jobId');
+    return BatchJob.fromJson(data);
+  }
 }

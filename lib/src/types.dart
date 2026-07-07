@@ -1,4 +1,7 @@
 /// Data models returned by the FR-APIaaS API.
+library;
+
+import 'dart:typed_data';
 
 // ---------------------------------------------------------------------------
 // Face Collection
@@ -190,4 +193,90 @@ class PagedList<T> {
   final List<T> items;
 
   const PagedList(this.items);
+}
+
+// ---------------------------------------------------------------------------
+// Async batch registration
+// ---------------------------------------------------------------------------
+
+/// One face to enroll in a batch (sync or async) registration request.
+class BatchRegisterItem {
+  final String externalId;
+  final Uint8List image;
+  final Map<String, dynamic>? metadata;
+  final String? filename;
+
+  const BatchRegisterItem({
+    required this.externalId,
+    required this.image,
+    this.metadata,
+    this.filename,
+  });
+}
+
+/// Outcome for one image of an async batch job.
+class BatchJobResult {
+  final int index;
+  final String externalId;
+  final String? faceId;
+  final String? error;
+
+  const BatchJobResult({
+    required this.index,
+    required this.externalId,
+    this.faceId,
+    this.error,
+  });
+
+  factory BatchJobResult.fromJson(Map<String, dynamic> json) => BatchJobResult(
+        index: json['index'] as int? ?? 0,
+        externalId: json['external_id'] as String? ?? '',
+        faceId: json['face_id'] as String?,
+        error: json['error'] as String?,
+      );
+}
+
+/// An asynchronous batch registration job.
+/// [status] is one of: `queued`, `processing`, `done`, `failed`.
+class BatchJob {
+  final String id;
+  final String collectionId;
+  final String status;
+  final int total;
+  final int processed;
+  final int succeeded;
+  final int failed;
+  final List<BatchJobResult> results;
+  final String createdAt;
+  final String updatedAt;
+
+  const BatchJob({
+    required this.id,
+    required this.collectionId,
+    required this.status,
+    required this.total,
+    required this.processed,
+    required this.succeeded,
+    required this.failed,
+    required this.results,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  bool get isFinished => status == 'done' || status == 'failed';
+
+  factory BatchJob.fromJson(Map<String, dynamic> json) => BatchJob(
+        id: json['id'] as String,
+        collectionId: json['collection_id'] as String? ?? '',
+        status: json['status'] as String? ?? '',
+        total: json['total'] as int? ?? 0,
+        processed: json['processed'] as int? ?? 0,
+        succeeded: json['succeeded'] as int? ?? 0,
+        failed: json['failed'] as int? ?? 0,
+        results: (json['results'] as List<dynamic>? ?? const [])
+            .map((r) => BatchJobResult.fromJson(r as Map<String, dynamic>))
+            .toList(),
+        createdAt: json['created_at'] as String? ?? '',
+        updatedAt: json['updated_at'] as String? ?? '',
+      );
 }
