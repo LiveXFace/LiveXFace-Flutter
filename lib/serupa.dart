@@ -1,17 +1,17 @@
-/// FR-APIaaS — Official Flutter/Dart SDK
+/// Serupa — Official Flutter/Dart SDK
 ///
 /// Usage:
 /// ```dart
-/// import 'package:fr_apiaas/fr_apiaas.dart';
+/// import 'package:serupa/serupa.dart';
 ///
-/// final client = FrApiClient(apiKey: 'fr_live_xxxxxxxx');
+/// final client = SerupaClient(apiKey: 'srp_live_xxxxxxxx');
 ///
 /// final result = await client.faces.verify(
 ///   collectionId: 'col_id',
 ///   image: imageBytes,
 /// );
 /// ```
-library fr_apiaas;
+library serupa;
 
 export 'src/client.dart';
 export 'src/types.dart';

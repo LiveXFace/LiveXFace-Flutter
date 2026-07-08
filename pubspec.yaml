@@ -1,8 +1,8 @@
-name: fr_apiaas
-description: Official Flutter/Dart SDK for the FR-APIaaS Face Recognition API.
+name: serupa
+description: Official Flutter/Dart SDK for the Serupa Face Recognition API.
 version: 0.1.0
-homepage: https://fr-apiaas.io
-repository: https://github.com/imronreviady/fr-apiaas
+homepage: https://serupa.ai
+repository: https://github.com/serupa/serupa-flutter
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

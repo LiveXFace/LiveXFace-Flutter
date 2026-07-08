@@ -7,24 +7,24 @@ import 'package:mime/mime.dart';
 import 'exceptions.dart';
 import 'types.dart';
 
-const _defaultBaseUrl = 'https://api.fr-apiaas.io/api/v1';
+const _defaultBaseUrl = 'https://api.serupa.ai/api/v1';
 
-/// Main entry point for the FR-APIaaS SDK.
+/// Main entry point for the Serupa SDK.
 ///
 /// ```dart
-/// final client = FrApiClient(apiKey: 'fr_live_xxxxxxxx');
+/// final client = SerupaClient(apiKey: 'srp_live_xxxxxxxx');
 ///
 /// final result = await client.faces.verify(
 ///   collectionId: 'col_id',
 ///   image: imageBytes,
 /// );
 /// ```
-class FrApiClient {
+class SerupaClient {
   final String apiKey;
   final String baseUrl;
   final http.Client _http;
 
-  FrApiClient({
+  SerupaClient({
     required this.apiKey,
     this.baseUrl = _defaultBaseUrl,
     http.Client? httpClient,
@@ -52,10 +52,10 @@ class FrApiClient {
     try {
       final res = await _http.get(_uri(path, query), headers: _headers);
       return _handle(res);
-    } on FrApiException {
+    } on SerupaApiException {
       rethrow;
     } catch (e) {
-      throw FrNetworkException('GET $path failed', e);
+      throw SerupaNetworkException('GET $path failed', e);
     }
   }
 
@@ -68,10 +68,10 @@ class FrApiClient {
         body: jsonEncode(body),
       );
       return _handle(res);
-    } on FrApiException {
+    } on SerupaApiException {
       rethrow;
     } catch (e) {
-      throw FrNetworkException('POST $path failed', e);
+      throw SerupaNetworkException('POST $path failed', e);
     }
   }
 
@@ -99,10 +99,10 @@ class FrApiClient {
       final streamed = await _http.send(req);
       final res = await http.Response.fromStream(streamed);
       return _handle(res);
-    } on FrApiException {
+    } on SerupaApiException {
       rethrow;
     } catch (e) {
-      throw FrNetworkException('POST $path (multipart) failed', e);
+      throw SerupaNetworkException('POST $path (multipart) failed', e);
     }
   }
 
@@ -121,10 +121,10 @@ class FrApiClient {
       final streamed = await _http.send(req);
       final res = await http.Response.fromStream(streamed);
       return _handle(res);
-    } on FrApiException {
+    } on SerupaApiException {
       rethrow;
     } catch (e) {
-      throw FrNetworkException('POST $path (multipart) failed', e);
+      throw SerupaNetworkException('POST $path (multipart) failed', e);
     }
   }
 
@@ -133,10 +133,10 @@ class FrApiClient {
       final res = await _http.delete(_uri(path, query), headers: _headers);
       if (res.statusCode == 204) return;
       _handle(res);
-    } on FrApiException {
+    } on SerupaApiException {
       rethrow;
     } catch (e) {
-      throw FrNetworkException('DELETE $path failed', e);
+      throw SerupaNetworkException('DELETE $path failed', e);
     }
   }
 
@@ -157,20 +157,20 @@ class FrApiClient {
     switch (res.statusCode) {
       case 400:
       case 422:
-        if (code == 'NO_FACE_DETECTED') throw FrNoFaceDetectedException(msg);
-        throw FrValidationException(msg, code: code);
+        if (code == 'NO_FACE_DETECTED') throw SerupaNoFaceDetectedException(msg);
+        throw SerupaValidationException(msg, code: code);
       case 401:
-        throw FrUnauthorizedException(msg, code: code);
+        throw SerupaUnauthorizedException(msg, code: code);
       case 403:
-        throw FrForbiddenException(msg, code: code);
+        throw SerupaForbiddenException(msg, code: code);
       case 404:
-        throw FrNotFoundException(msg, code: code);
+        throw SerupaNotFoundException(msg, code: code);
       case 402:
-        throw FrQuotaExceededException(msg, code: code);
+        throw SerupaQuotaExceededException(msg, code: code);
       case 429:
-        throw FrRateLimitException(msg);
+        throw SerupaRateLimitException(msg);
       default:
-        throw FrServerException(msg, res.statusCode, code: code);
+        throw SerupaServerException(msg, res.statusCode, code: code);
     }
   }
 
@@ -188,7 +188,7 @@ class FrApiClient {
 // ---------------------------------------------------------------------------
 
 class CollectionsApi {
-  final FrApiClient _client;
+  final SerupaClient _client;
   CollectionsApi._(this._client);
 
   Future<PagedList<FaceCollection>> list(
@@ -218,7 +218,7 @@ class CollectionsApi {
 // ---------------------------------------------------------------------------
 
 class FacesApi {
-  final FrApiClient _client;
+  final SerupaClient _client;
   FacesApi._(this._client);
 
   /// Enroll a new face into a collection.

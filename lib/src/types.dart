@@ -1,4 +1,4 @@
-/// Data models returned by the FR-APIaaS API.
+/// Data models returned by the Serupa API.
 library;
 
 import 'dart:typed_data';
