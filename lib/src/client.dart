@@ -7,24 +7,24 @@ import 'package:mime/mime.dart';
 import 'exceptions.dart';
 import 'types.dart';
 
-const _defaultBaseUrl = 'https://api.serupa.ai/api/v1';
+const _defaultBaseUrl = 'https://api.idemity.com/api/v1';
 
-/// Main entry point for the Serupa SDK.
+/// Main entry point for the Idemity SDK.
 ///
 /// ```dart
-/// final client = SerupaClient(apiKey: 'srp_live_xxxxxxxx');
+/// final client = IdemityClient(apiKey: 'idm_live_xxxxxxxx');
 ///
 /// final result = await client.faces.verify(
 ///   collectionId: 'col_id',
 ///   image: imageBytes,
 /// );
 /// ```
-class SerupaClient {
+class IdemityClient {
   final String apiKey;
   final String baseUrl;
   final http.Client _http;
 
-  SerupaClient({
+  IdemityClient({
     required this.apiKey,
     this.baseUrl = _defaultBaseUrl,
     http.Client? httpClient,
@@ -52,10 +52,10 @@ class SerupaClient {
     try {
       final res = await _http.get(_uri(path, query), headers: _headers);
       return _handle(res);
-    } on SerupaApiException {
+    } on IdemityApiException {
       rethrow;
     } catch (e) {
-      throw SerupaNetworkException('GET $path failed', e);
+      throw IdemityNetworkException('GET $path failed', e);
     }
   }
 
@@ -68,10 +68,10 @@ class SerupaClient {
         body: jsonEncode(body),
       );
       return _handle(res);
-    } on SerupaApiException {
+    } on IdemityApiException {
       rethrow;
     } catch (e) {
-      throw SerupaNetworkException('POST $path failed', e);
+      throw IdemityNetworkException('POST $path failed', e);
     }
   }
 
@@ -99,10 +99,10 @@ class SerupaClient {
       final streamed = await _http.send(req);
       final res = await http.Response.fromStream(streamed);
       return _handle(res);
-    } on SerupaApiException {
+    } on IdemityApiException {
       rethrow;
     } catch (e) {
-      throw SerupaNetworkException('POST $path (multipart) failed', e);
+      throw IdemityNetworkException('POST $path (multipart) failed', e);
     }
   }
 
@@ -121,10 +121,10 @@ class SerupaClient {
       final streamed = await _http.send(req);
       final res = await http.Response.fromStream(streamed);
       return _handle(res);
-    } on SerupaApiException {
+    } on IdemityApiException {
       rethrow;
     } catch (e) {
-      throw SerupaNetworkException('POST $path (multipart) failed', e);
+      throw IdemityNetworkException('POST $path (multipart) failed', e);
     }
   }
 
@@ -133,10 +133,10 @@ class SerupaClient {
       final res = await _http.delete(_uri(path, query), headers: _headers);
       if (res.statusCode == 204) return;
       _handle(res);
-    } on SerupaApiException {
+    } on IdemityApiException {
       rethrow;
     } catch (e) {
-      throw SerupaNetworkException('DELETE $path failed', e);
+      throw IdemityNetworkException('DELETE $path failed', e);
     }
   }
 
@@ -157,20 +157,20 @@ class SerupaClient {
     switch (res.statusCode) {
       case 400:
       case 422:
-        if (code == 'NO_FACE_DETECTED') throw SerupaNoFaceDetectedException(msg);
-        throw SerupaValidationException(msg, code: code);
+        if (code == 'NO_FACE_DETECTED') throw IdemityNoFaceDetectedException(msg);
+        throw IdemityValidationException(msg, code: code);
       case 401:
-        throw SerupaUnauthorizedException(msg, code: code);
+        throw IdemityUnauthorizedException(msg, code: code);
       case 403:
-        throw SerupaForbiddenException(msg, code: code);
+        throw IdemityForbiddenException(msg, code: code);
       case 404:
-        throw SerupaNotFoundException(msg, code: code);
+        throw IdemityNotFoundException(msg, code: code);
       case 402:
-        throw SerupaQuotaExceededException(msg, code: code);
+        throw IdemityQuotaExceededException(msg, code: code);
       case 429:
-        throw SerupaRateLimitException(msg);
+        throw IdemityRateLimitException(msg);
       default:
-        throw SerupaServerException(msg, res.statusCode, code: code);
+        throw IdemityServerException(msg, res.statusCode, code: code);
     }
   }
 
@@ -188,7 +188,7 @@ class SerupaClient {
 // ---------------------------------------------------------------------------
 
 class CollectionsApi {
-  final SerupaClient _client;
+  final IdemityClient _client;
   CollectionsApi._(this._client);
 
   Future<PagedList<FaceCollection>> list(
@@ -218,7 +218,7 @@ class CollectionsApi {
 // ---------------------------------------------------------------------------
 
 class FacesApi {
-  final SerupaClient _client;
+  final IdemityClient _client;
   FacesApi._(this._client);
 
   /// Enroll a new face into a collection.

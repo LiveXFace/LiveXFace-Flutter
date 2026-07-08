@@ -1,8 +1,8 @@
-name: serupa
-description: Official Flutter/Dart SDK for the Serupa Face Recognition API.
+name: idemity
+description: Official Flutter/Dart SDK for the Idemity Face Recognition API.
 version: 0.1.0
-homepage: https://serupa.ai
-repository: https://github.com/serupa/serupa-flutter
+homepage: https://idemity.com
+repository: https://github.com/idemity/idemity-flutter
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

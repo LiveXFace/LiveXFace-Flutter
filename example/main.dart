@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:serupa/serupa.dart';
+import 'package:idemity/idemity.dart';
 
 void main() async {
-  final client = SerupaClient(apiKey: 'srp_live_xxxxxxxxxxxxxxxx');
+  final client = IdemityClient(apiKey: 'idm_live_xxxxxxxxxxxxxxxx');
 
   // Load image bytes from disk (or from camera/gallery in a real app)
   final imageBytes = await File('photo.jpg').readAsBytes();
@@ -34,11 +34,11 @@ void main() async {
     for (final match in result.matches) {
       print('Match: ${match.externalId} — ${(match.confidence * 100).toStringAsFixed(1)}%');
     }
-  } on SerupaNoFaceDetectedException {
+  } on IdemityNoFaceDetectedException {
     print('No face found in the image.');
-  } on SerupaRateLimitException {
+  } on IdemityRateLimitException {
     print('Rate limit hit — retry after a moment.');
-  } on SerupaApiException catch (e) {
+  } on IdemityApiException catch (e) {
     print('API error [${e.code}]: ${e.message}');
   } finally {
     client.dispose();

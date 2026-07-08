@@ -1,4 +1,4 @@
-/// Data models returned by the Serupa API.
+/// Data models returned by the Idemity API.
 library;
 
 import 'dart:typed_data';
