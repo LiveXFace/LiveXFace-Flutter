@@ -7,24 +7,24 @@ import 'package:mime/mime.dart';
 import 'exceptions.dart';
 import 'types.dart';
 
-const _defaultBaseUrl = 'https://api.idemity.com/api/v1';
+const _defaultBaseUrl = 'https://api.livexface.com/api/v1';
 
-/// Main entry point for the Idemity SDK.
+/// Main entry point for the LiveXFace SDK.
 ///
 /// ```dart
-/// final client = IdemityClient(apiKey: 'idm_live_xxxxxxxx');
+/// final client = LiveXFaceClient(apiKey: 'lxf_live_xxxxxxxx');
 ///
 /// final result = await client.faces.verify(
 ///   collectionId: 'col_id',
 ///   image: imageBytes,
 /// );
 /// ```
-class IdemityClient {
+class LiveXFaceClient {
   final String apiKey;
   final String baseUrl;
   final http.Client _http;
 
-  IdemityClient({
+  LiveXFaceClient({
     required this.apiKey,
     this.baseUrl = _defaultBaseUrl,
     http.Client? httpClient,
@@ -52,10 +52,10 @@ class IdemityClient {
     try {
       final res = await _http.get(_uri(path, query), headers: _headers);
       return _handle(res);
-    } on IdemityApiException {
+    } on LiveXFaceApiException {
       rethrow;
     } catch (e) {
-      throw IdemityNetworkException('GET $path failed', e);
+      throw LiveXFaceNetworkException('GET $path failed', e);
     }
   }
 
@@ -68,10 +68,10 @@ class IdemityClient {
         body: jsonEncode(body),
       );
       return _handle(res);
-    } on IdemityApiException {
+    } on LiveXFaceApiException {
       rethrow;
     } catch (e) {
-      throw IdemityNetworkException('POST $path failed', e);
+      throw LiveXFaceNetworkException('POST $path failed', e);
     }
   }
 
@@ -99,10 +99,10 @@ class IdemityClient {
       final streamed = await _http.send(req);
       final res = await http.Response.fromStream(streamed);
       return _handle(res);
-    } on IdemityApiException {
+    } on LiveXFaceApiException {
       rethrow;
     } catch (e) {
-      throw IdemityNetworkException('POST $path (multipart) failed', e);
+      throw LiveXFaceNetworkException('POST $path (multipart) failed', e);
     }
   }
 
@@ -121,10 +121,10 @@ class IdemityClient {
       final streamed = await _http.send(req);
       final res = await http.Response.fromStream(streamed);
       return _handle(res);
-    } on IdemityApiException {
+    } on LiveXFaceApiException {
       rethrow;
     } catch (e) {
-      throw IdemityNetworkException('POST $path (multipart) failed', e);
+      throw LiveXFaceNetworkException('POST $path (multipart) failed', e);
     }
   }
 
@@ -133,10 +133,10 @@ class IdemityClient {
       final res = await _http.delete(_uri(path, query), headers: _headers);
       if (res.statusCode == 204) return;
       _handle(res);
-    } on IdemityApiException {
+    } on LiveXFaceApiException {
       rethrow;
     } catch (e) {
-      throw IdemityNetworkException('DELETE $path failed', e);
+      throw LiveXFaceNetworkException('DELETE $path failed', e);
     }
   }
 
@@ -157,20 +157,20 @@ class IdemityClient {
     switch (res.statusCode) {
       case 400:
       case 422:
-        if (code == 'NO_FACE_DETECTED') throw IdemityNoFaceDetectedException(msg);
-        throw IdemityValidationException(msg, code: code);
+        if (code == 'NO_FACE_DETECTED') throw LiveXFaceNoFaceDetectedException(msg);
+        throw LiveXFaceValidationException(msg, code: code);
       case 401:
-        throw IdemityUnauthorizedException(msg, code: code);
+        throw LiveXFaceUnauthorizedException(msg, code: code);
       case 403:
-        throw IdemityForbiddenException(msg, code: code);
+        throw LiveXFaceForbiddenException(msg, code: code);
       case 404:
-        throw IdemityNotFoundException(msg, code: code);
+        throw LiveXFaceNotFoundException(msg, code: code);
       case 402:
-        throw IdemityQuotaExceededException(msg, code: code);
+        throw LiveXFaceQuotaExceededException(msg, code: code);
       case 429:
-        throw IdemityRateLimitException(msg);
+        throw LiveXFaceRateLimitException(msg);
       default:
-        throw IdemityServerException(msg, res.statusCode, code: code);
+        throw LiveXFaceServerException(msg, res.statusCode, code: code);
     }
   }
 
@@ -188,7 +188,7 @@ class IdemityClient {
 // ---------------------------------------------------------------------------
 
 class CollectionsApi {
-  final IdemityClient _client;
+  final LiveXFaceClient _client;
   CollectionsApi._(this._client);
 
   Future<PagedList<FaceCollection>> list(
@@ -218,7 +218,7 @@ class CollectionsApi {
 // ---------------------------------------------------------------------------
 
 class FacesApi {
-  final IdemityClient _client;
+  final LiveXFaceClient _client;
   FacesApi._(this._client);
 
   /// Enroll a new face into a collection.
@@ -349,7 +349,7 @@ class FacesApi {
         contentType: _client._mediaType(mime),
       ));
       entries.add({
-        'external_id': item.externalId,
+        'externalId': item.externalId,
         'metadata': item.metadata ?? <String, dynamic>{},
       });
     }

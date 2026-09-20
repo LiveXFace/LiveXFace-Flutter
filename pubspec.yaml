@@ -1,8 +1,8 @@
-name: idemity
-description: Official Flutter/Dart SDK for the Idemity Face Recognition API.
+name: livexface
+description: Official Flutter/Dart SDK for the LiveXFace Face Recognition API.
 version: 0.1.0
-homepage: https://idemity.com
-repository: https://github.com/idemity/idemity-flutter
+homepage: https://livexface.com
+repository: https://github.com/livexface/livexface-flutter
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

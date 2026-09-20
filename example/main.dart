@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:idemity/idemity.dart';
+import 'package:livexface/livexface.dart';
 
 void main() async {
-  final client = IdemityClient(apiKey: 'idm_live_xxxxxxxxxxxxxxxx');
+  final client = LiveXFaceClient(apiKey: 'lxf_live_xxxxxxxxxxxxxxxx');
 
   // Load image bytes from disk (or from camera/gallery in a real app)
   final imageBytes = await File('photo.jpg').readAsBytes();
@@ -34,11 +34,11 @@ void main() async {
     for (final match in result.matches) {
       print('Match: ${match.externalId} — ${(match.confidence * 100).toStringAsFixed(1)}%');
     }
-  } on IdemityNoFaceDetectedException {
+  } on LiveXFaceNoFaceDetectedException {
     print('No face found in the image.');
-  } on IdemityRateLimitException {
+  } on LiveXFaceRateLimitException {
     print('Rate limit hit — retry after a moment.');
-  } on IdemityApiException catch (e) {
+  } on LiveXFaceApiException catch (e) {
     print('API error [${e.code}]: ${e.message}');
   } finally {
     client.dispose();

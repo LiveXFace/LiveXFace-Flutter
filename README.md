@@ -1,27 +1,27 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-white.svg">
-    <img src="docs/brand/logo.svg" alt="Idemity" width="220">
+    <img src="docs/brand/logo.svg" alt="LiveXFace" width="220">
   </picture>
 </p>
 
-# Idemity Flutter SDK
+# LiveXFace Flutter SDK
 
-Official Flutter/Dart SDK for [Idemity](https://idemity.com) — Face Recognition as a Service.
+Official Flutter/Dart SDK for [LiveXFace](https://livexface.com) — Face Recognition as a Service.
 
 ## Install
 
 ```yaml
 dependencies:
-  idemity: ^0.1.0
+  livexface: ^0.1.0
 ```
 
 ## Quick start
 
 ```dart
-import 'package:idemity/idemity.dart';
+import 'package:livexface/livexface.dart';
 
-final client = IdemityClient(apiKey: 'idm_live_xxxxxxxx');
+final client = LiveXFaceClient(apiKey: 'lxf_live_xxxxxxxx');
 
 // Register a face
 final face = await client.faces.register(
@@ -43,12 +43,12 @@ See [`example/main.dart`](example/main.dart) for the full API surface: verify, l
 
 | Option | Default | Description |
 |---|---|---|
-| `apiKey` | — | Your API key (`idm_live_...` or `idm_test_...`) |
-| `baseUrl` | `https://api.idemity.com/api/v1` | Point at your own instance for on-prem |
+| `apiKey` | — | Your API key (`lxf_live_...` or `lxf_test_...`) |
+| `baseUrl` | `https://api.livexface.com/api/v1` | Point at your own instance for on-prem |
 | `timeout` | 30s | Request timeout |
 
 ## Errors
 
-All API errors extend `IdemityApiException` (with typed subclasses such as
-`IdemityNoFaceDetectedException`, `IdemityRateLimitException`); transport
-failures throw `IdemityNetworkException`.
+All API errors extend `LiveXFaceApiException` (with typed subclasses such as
+`LiveXFaceNoFaceDetectedException`, `LiveXFaceRateLimitException`); transport
+failures throw `LiveXFaceNetworkException`.

@@ -1,4 +1,4 @@
-/// Data models returned by the Idemity API.
+/// Data models returned by the LiveXFace API.
 library;
 
 import 'dart:typed_data';
@@ -28,12 +28,12 @@ class FaceCollection {
 
   factory FaceCollection.fromJson(Map<String, dynamic> json) => FaceCollection(
         id: json['id'] as String,
-        organizationId: json['organization_id'] as String,
+        organizationId: json['organizationId'] as String,
         name: json['name'] as String,
         description: json['description'] as String? ?? '',
-        faceCount: json['face_count'] as int? ?? 0,
-        retentionDays: json['retention_days'] as int?,
-        createdAt: DateTime.parse(json['created_at'] as String),
+        faceCount: json['faceCount'] as int? ?? 0,
+        retentionDays: json['retentionDays'] as int?,
+        createdAt: DateTime.parse(json['createdAt'] as String),
       );
 }
 
@@ -60,11 +60,11 @@ class Face {
 
   factory Face.fromJson(Map<String, dynamic> json) => Face(
         id: json['id'] as String,
-        collectionId: json['collection_id'] as String,
-        externalId: json['external_id'] as String? ?? '',
+        collectionId: json['collectionId'] as String,
+        externalId: json['externalId'] as String? ?? '',
         metadata: json['metadata'] as Map<String, dynamic>?,
-        imageUrl: json['image_url'] as String?,
-        createdAt: DateTime.parse(json['created_at'] as String),
+        imageUrl: json['imageUrl'] as String?,
+        createdAt: DateTime.parse(json['createdAt'] as String),
       );
 }
 
@@ -88,8 +88,8 @@ class VerifyResult {
   factory VerifyResult.fromJson(Map<String, dynamic> json) => VerifyResult(
         match: json['match'] as bool,
         confidence: (json['confidence'] as num).toDouble(),
-        thresholdUsed: (json['threshold_used'] as num).toDouble(),
-        faceId: json['face_id'] as String?,
+        thresholdUsed: (json['thresholdUsed'] as num).toDouble(),
+        faceId: json['faceId'] as String?,
       );
 }
 
@@ -111,8 +111,8 @@ class IdentifyMatch {
   });
 
   factory IdentifyMatch.fromJson(Map<String, dynamic> json) => IdentifyMatch(
-        faceId: json['face_id'] as String,
-        externalId: json['external_id'] as String? ?? '',
+        faceId: json['faceId'] as String,
+        externalId: json['externalId'] as String? ?? '',
         confidence: (json['confidence'] as num).toDouble(),
         metadata: json['metadata'] as Map<String, dynamic>?,
       );
@@ -128,7 +128,7 @@ class IdentifyResult {
         matches: (json['matches'] as List<dynamic>)
             .map((e) => IdentifyMatch.fromJson(e as Map<String, dynamic>))
             .toList(),
-        queryTimeMs: json['query_time_ms'] as int? ?? 0,
+        queryTimeMs: json['queryTimeMs'] as int? ?? 0,
       );
 }
 
@@ -150,10 +150,10 @@ class LivenessResult {
   });
 
   factory LivenessResult.fromJson(Map<String, dynamic> json) => LivenessResult(
-        isLive: json['is_live'] as bool,
-        livenessScore: (json['liveness_score'] as num).toDouble(),
-        faceDetected: json['face_detected'] as bool,
-        faceCount: json['face_count'] as int? ?? 0,
+        isLive: json['isLive'] as bool,
+        livenessScore: (json['livenessScore'] as num).toDouble(),
+        faceDetected: json['faceDetected'] as bool,
+        faceCount: json['faceCount'] as int? ?? 0,
       );
 }
 
@@ -177,8 +177,8 @@ class FaceAttributes {
   factory FaceAttributes.fromJson(Map<String, dynamic> json) {
     final primary = json['primary'] as Map<String, dynamic>?;
     return FaceAttributes(
-      faceDetected: json['face_detected'] as bool,
-      faceCount: json['face_count'] as int? ?? 0,
+      faceDetected: json['faceDetected'] as bool,
+      faceCount: json['faceCount'] as int? ?? 0,
       age: primary?['age'] as int?,
       gender: primary?['gender'] as String?,
     );
@@ -230,8 +230,8 @@ class BatchJobResult {
 
   factory BatchJobResult.fromJson(Map<String, dynamic> json) => BatchJobResult(
         index: json['index'] as int? ?? 0,
-        externalId: json['external_id'] as String? ?? '',
-        faceId: json['face_id'] as String?,
+        externalId: json['externalId'] as String? ?? '',
+        faceId: json['faceId'] as String?,
         error: json['error'] as String?,
       );
 }
@@ -267,7 +267,7 @@ class BatchJob {
 
   factory BatchJob.fromJson(Map<String, dynamic> json) => BatchJob(
         id: json['id'] as String,
-        collectionId: json['collection_id'] as String? ?? '',
+        collectionId: json['collectionId'] as String? ?? '',
         status: json['status'] as String? ?? '',
         total: json['total'] as int? ?? 0,
         processed: json['processed'] as int? ?? 0,
@@ -276,7 +276,7 @@ class BatchJob {
         results: (json['results'] as List<dynamic>? ?? const [])
             .map((r) => BatchJobResult.fromJson(r as Map<String, dynamic>))
             .toList(),
-        createdAt: json['created_at'] as String? ?? '',
-        updatedAt: json['updated_at'] as String? ?? '',
+        createdAt: json['createdAt'] as String? ?? '',
+        updatedAt: json['updatedAt'] as String? ?? '',
       );
 }

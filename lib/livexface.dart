@@ -1,17 +1,17 @@
-/// Idemity — Official Flutter/Dart SDK
+/// LiveXFace — Official Flutter/Dart SDK
 ///
 /// Usage:
 /// ```dart
-/// import 'package:idemity/idemity.dart';
+/// import 'package:livexface/livexface.dart';
 ///
-/// final client = IdemityClient(apiKey: 'idm_live_xxxxxxxx');
+/// final client = LiveXFaceClient(apiKey: 'lxf_live_xxxxxxxx');
 ///
 /// final result = await client.faces.verify(
 ///   collectionId: 'col_id',
 ///   image: imageBytes,
 /// );
 /// ```
-library idemity;
+library livexface;
 
 export 'src/client.dart';
 export 'src/types.dart';
