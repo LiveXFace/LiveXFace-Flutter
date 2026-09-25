@@ -17,8 +17,12 @@ const _defaultBaseUrl = 'https://api.livexface.com/api/v1';
 /// final result = await client.faces.verify(
 ///   collectionId: 'col_id',
 ///   image: imageBytes,
+///   faceId: 'face_id',
 /// );
 /// ```
+///
+/// Collections are created and managed in the dashboard; the API has no
+/// endpoints for that, so the client has no collection operations.
 class LiveXFaceClient {
   final String apiKey;
   final String baseUrl;
@@ -31,7 +35,6 @@ class LiveXFaceClient {
   }) : _http = httpClient ?? http.Client();
 
   late final FacesApi faces = FacesApi._(this);
-  late final CollectionsApi collections = CollectionsApi._(this);
 
   // ---------------------------------------------------------------------------
   // Internal helpers
@@ -56,22 +59,6 @@ class LiveXFaceClient {
       rethrow;
     } catch (e) {
       throw LiveXFaceNetworkException('GET $path failed', e);
-    }
-  }
-
-  Future<Map<String, dynamic>> _postJson(
-      String path, Map<String, dynamic> body) async {
-    try {
-      final res = await _http.post(
-        _uri(path),
-        headers: {..._headers, 'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
-      return _handle(res);
-    } on LiveXFaceApiException {
-      rethrow;
-    } catch (e) {
-      throw LiveXFaceNetworkException('POST $path failed', e);
     }
   }
 
@@ -147,30 +134,51 @@ class LiveXFaceClient {
       return body['data'] as Map<String, dynamic>? ?? body;
     }
 
-    final body = res.body.isNotEmpty
-        ? jsonDecode(res.body) as Map<String, dynamic>
-        : <String, dynamic>{};
+    // An unknown route answers with a plain-text 404, not the JSON envelope.
+    // Decoding that used to throw, and the caller then reported a network
+    // failure for what was an HTTP error.
+    var body = <String, dynamic>{};
+    try {
+      final decoded = res.body.isNotEmpty ? jsonDecode(res.body) : null;
+      if (decoded is Map<String, dynamic>) body = decoded;
+    } on FormatException {
+      // Not JSON; fall through with the status code alone.
+    }
     final err = body['error'] as Map<String, dynamic>?;
     final msg = err?['message'] as String? ?? 'API error ${res.statusCode}';
     final code = err?['code'] as String?;
+    // Quote this when contacting support.
+    final requestId = body['requestId'] as String?;
 
     switch (res.statusCode) {
       case 400:
       case 422:
-        if (code == 'NO_FACE_DETECTED') throw LiveXFaceNoFaceDetectedException(msg);
-        throw LiveXFaceValidationException(msg, code: code);
+        if (code == 'NO_FACE_DETECTED') {
+          throw LiveXFaceNoFaceDetectedException(msg, requestId);
+        }
+        // Declared long before the API could send it, and never thrown, so
+        // a liveness refusal arrived as a generic validation error.
+        if (code == 'SPOOF_DETECTED') {
+          throw LiveXFaceSpoofDetectedException(msg, requestId);
+        }
+        throw LiveXFaceValidationException(msg,
+            code: code, requestId: requestId);
       case 401:
-        throw LiveXFaceUnauthorizedException(msg, code: code);
+        throw LiveXFaceUnauthorizedException(msg,
+            code: code, requestId: requestId);
       case 403:
-        throw LiveXFaceForbiddenException(msg, code: code);
+        throw LiveXFaceForbiddenException(msg,
+            code: code, requestId: requestId);
       case 404:
-        throw LiveXFaceNotFoundException(msg, code: code);
+        throw LiveXFaceNotFoundException(msg, code: code, requestId: requestId);
       case 402:
-        throw LiveXFaceQuotaExceededException(msg, code: code);
+        throw LiveXFaceQuotaExceededException(msg,
+            code: code, requestId: requestId);
       case 429:
-        throw LiveXFaceRateLimitException(msg);
+        throw LiveXFaceRateLimitException(msg, requestId);
       default:
-        throw LiveXFaceServerException(msg, res.statusCode, code: code);
+        throw LiveXFaceServerException(msg, res.statusCode,
+            code: code, requestId: requestId);
     }
   }
 
@@ -181,36 +189,6 @@ class LiveXFaceClient {
   }
 
   void dispose() => _http.close();
-}
-
-// ---------------------------------------------------------------------------
-// Collections API
-// ---------------------------------------------------------------------------
-
-class CollectionsApi {
-  final LiveXFaceClient _client;
-  CollectionsApi._(this._client);
-
-  Future<PagedList<FaceCollection>> list(
-    String orgId, {
-    int limit = 20,
-    int offset = 0,
-  }) async {
-    final data = await _client._get(
-      '/organizations/$orgId/collections',
-      {'limit': '$limit', 'offset': '$offset'},
-    );
-    final items = (data as List<dynamic>? ?? [])
-        .map((e) => FaceCollection.fromJson(e as Map<String, dynamic>))
-        .toList();
-    return PagedList(items);
-  }
-
-  Future<FaceCollection> get(String orgId, String collectionId) async {
-    final data =
-        await _client._get('/organizations/$orgId/collections/$collectionId');
-    return FaceCollection.fromJson(data);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -245,12 +223,11 @@ class FacesApi {
   Future<VerifyResult> verify({
     required String collectionId,
     required Uint8List image,
-    String? faceId,
+    required String faceId,
     double? threshold,
     String? filename,
   }) async {
-    final fields = <String, String>{};
-    if (faceId != null) fields['face_id'] = faceId;
+    final fields = <String, String>{'face_id': faceId};
     if (threshold != null) fields['threshold'] = threshold.toString();
 
     final data = await _client._postMultipart(
@@ -317,16 +294,6 @@ class FacesApi {
   }) =>
       _client._delete('/collections/$collectionId/faces/$faceId');
 
-  /// GDPR erasure — delete all faces for a given external ID.
-  Future<void> deleteByExternalId({
-    required String collectionId,
-    required String externalId,
-  }) =>
-      _client._delete(
-        '/collections/$collectionId/faces',
-        {'external_id': externalId},
-      );
-
   /// Submit up to 100 faces for asynchronous registration.
   ///
   /// Returns the created job immediately; poll [getBatchJob] until
@@ -368,8 +335,7 @@ class FacesApi {
     required String collectionId,
     required String jobId,
   }) async {
-    final data =
-        await _client._get('/collections/$collectionId/batch/$jobId');
+    final data = await _client._get('/collections/$collectionId/batch/$jobId');
     return BatchJob.fromJson(data);
   }
 }

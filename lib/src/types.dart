@@ -7,36 +7,6 @@ import 'dart:typed_data';
 // Face Collection
 // ---------------------------------------------------------------------------
 
-class FaceCollection {
-  final String id;
-  final String organizationId;
-  final String name;
-  final String description;
-  final int faceCount;
-  final int? retentionDays;
-  final DateTime createdAt;
-
-  const FaceCollection({
-    required this.id,
-    required this.organizationId,
-    required this.name,
-    required this.description,
-    required this.faceCount,
-    this.retentionDays,
-    required this.createdAt,
-  });
-
-  factory FaceCollection.fromJson(Map<String, dynamic> json) => FaceCollection(
-        id: json['id'] as String,
-        organizationId: json['organizationId'] as String,
-        name: json['name'] as String,
-        description: json['description'] as String? ?? '',
-        faceCount: json['faceCount'] as int? ?? 0,
-        retentionDays: json['retentionDays'] as int?,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-      );
-}
-
 // ---------------------------------------------------------------------------
 // Face
 // ---------------------------------------------------------------------------
@@ -188,12 +158,6 @@ class FaceAttributes {
 // ---------------------------------------------------------------------------
 // Paginated list helper
 // ---------------------------------------------------------------------------
-
-class PagedList<T> {
-  final List<T> items;
-
-  const PagedList(this.items);
-}
 
 // ---------------------------------------------------------------------------
 // Async batch registration
