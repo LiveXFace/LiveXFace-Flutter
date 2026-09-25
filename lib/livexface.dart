@@ -9,6 +9,7 @@
 /// final result = await client.faces.verify(
 ///   collectionId: 'col_id',
 ///   image: imageBytes,
+///   faceId: 'face_id',
 /// );
 /// ```
 library livexface;
