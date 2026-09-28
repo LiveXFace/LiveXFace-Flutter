@@ -93,7 +93,8 @@ class LiveXFaceClient {
     }
   }
 
-  /// Multipart POST with multiple image files (async batch registration).
+  /// Multipart POST with multiple image files (async batch registration,
+  /// active liveness).
   Future<Map<String, dynamic>> _postMultipartFiles(
     String path,
     List<http.MultipartFile> files, {
@@ -200,15 +201,22 @@ class FacesApi {
   FacesApi._(this._client);
 
   /// Enroll a new face into a collection.
+  ///
+  /// A collection that requires liveness refuses enrolment without a
+  /// [livenessToken] from [activeLiveness] (`LIVENESS_TOKEN_REQUIRED`); a
+  /// spent, expired or foreign token is `LIVENESS_TOKEN_INVALID`, and a token
+  /// earned by a different face is `LIVENESS_FACE_MISMATCH`.
   Future<Face> register({
     required String collectionId,
     required Uint8List image,
     required String externalId,
     Map<String, dynamic>? metadata,
+    String? livenessToken,
     String? filename,
   }) async {
     final fields = <String, String>{'external_id': externalId};
     if (metadata != null) fields['metadata'] = jsonEncode(metadata);
+    if (livenessToken != null) fields['liveness_token'] = livenessToken;
 
     final data = await _client._postMultipart(
       '/collections/$collectionId/faces',
@@ -273,6 +281,36 @@ class FacesApi {
     return LivenessResult.fromJson(data);
   }
 
+  /// Active liveness — analyse a short burst of frames (5 to 50, JPEG or
+  /// PNG) for a blink, a head turn and passive anti-spoofing.
+  ///
+  /// When the check passes, the result carries a single-use
+  /// [ActiveLivenessResult.livenessToken], valid for 5 minutes and bound to
+  /// this organization and collection, to pass to [register] or a batch item.
+  Future<ActiveLivenessResult> activeLiveness({
+    required String collectionId,
+    required List<Uint8List> frames,
+  }) async {
+    final files = <http.MultipartFile>[];
+    for (var i = 0; i < frames.length; i++) {
+      final filename = 'frame_$i.jpg';
+      final mime =
+          lookupMimeType(filename, headerBytes: frames[i]) ?? 'image/jpeg';
+      files.add(http.MultipartFile.fromBytes(
+        'frame_$i',
+        frames[i],
+        filename: filename,
+        contentType: _client._mediaType(mime),
+      ));
+    }
+
+    final data = await _client._postMultipartFiles(
+      '/collections/$collectionId/active-liveness',
+      files,
+    );
+    return ActiveLivenessResult.fromJson(data);
+  }
+
   /// Face attribute detection — age and gender.
   Future<FaceAttributes> attributes({
     required String collectionId,
@@ -318,6 +356,7 @@ class FacesApi {
       entries.add({
         'externalId': item.externalId,
         'metadata': item.metadata ?? <String, dynamic>{},
+        if (item.livenessToken != null) 'livenessToken': item.livenessToken,
       });
     }
 

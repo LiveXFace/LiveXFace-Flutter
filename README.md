@@ -41,6 +41,33 @@ for (final match in result.matches) {
 }
 ```
 
+### Liveness-protected enrolment
+
+Collections that require liveness refuse enrolment without a token from an
+active-liveness check (5 to 50 frames of the person blinking and turning
+their head). The token is single-use, valid for 5 minutes and bound to the
+collection.
+
+```dart
+final check = await client.faces.activeLiveness(
+  collectionId: collectionId,
+  frames: frames, // List<Uint8List>
+);
+if (check.isLive) {
+  await client.faces.register(
+    collectionId: collectionId,
+    image: frames.first,
+    externalId: 'user-123',
+    livenessToken: check.livenessToken,
+  );
+}
+```
+
+Enrolment then fails with `LIVENESS_TOKEN_REQUIRED` (400) when no token is
+sent, `LIVENESS_TOKEN_INVALID` (422) for a spent, expired or foreign token,
+and `LIVENESS_FACE_MISMATCH` (422) when the image is not the face that passed.
+`BatchRegisterItem` takes a `livenessToken` per item.
+
 The client also covers verify, liveness, attributes and asynchronous batch
 registration; see [`example/main.dart`](example/main.dart).
 
