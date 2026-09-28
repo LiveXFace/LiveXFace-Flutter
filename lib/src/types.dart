@@ -128,6 +128,91 @@ class LivenessResult {
 }
 
 // ---------------------------------------------------------------------------
+// Active liveness
+// ---------------------------------------------------------------------------
+
+/// Outcome of one active-liveness challenge. [metrics] keeps every key the
+/// server sent, including challenge-specific measurements.
+class LivenessChallenge {
+  /// `null` when the challenge could not be evaluated.
+  final bool? passed;
+  final bool available;
+  final Map<String, dynamic> metrics;
+
+  const LivenessChallenge({
+    this.passed,
+    required this.available,
+    this.metrics = const {},
+  });
+
+  factory LivenessChallenge.fromJson(Map<String, dynamic> json) =>
+      LivenessChallenge(
+        passed: json['passed'] as bool?,
+        available: json['available'] as bool? ?? false,
+        metrics: Map<String, dynamic>.from(json),
+      );
+}
+
+class LivenessChallenges {
+  final LivenessChallenge blink;
+  final LivenessChallenge headTurn;
+  final LivenessChallenge passiveAntispoof;
+
+  const LivenessChallenges({
+    required this.blink,
+    required this.headTurn,
+    required this.passiveAntispoof,
+  });
+
+  factory LivenessChallenges.fromJson(Map<String, dynamic> json) {
+    LivenessChallenge parse(String key) => LivenessChallenge.fromJson(
+        json[key] as Map<String, dynamic>? ?? const {});
+    return LivenessChallenges(
+      blink: parse('blink'),
+      headTurn: parse('headTurn'),
+      passiveAntispoof: parse('passiveAntispoof'),
+    );
+  }
+}
+
+class ActiveLivenessResult {
+  final bool isLive;
+  final double overallScore;
+  final int framesAnalyzed;
+  final int framesWithFace;
+  final LivenessChallenges challenges;
+
+  /// Single-use enrolment token, present only when the check passed.
+  final String? livenessToken;
+  final DateTime? livenessTokenExpiresAt;
+
+  const ActiveLivenessResult({
+    required this.isLive,
+    required this.overallScore,
+    required this.framesAnalyzed,
+    required this.framesWithFace,
+    required this.challenges,
+    this.livenessToken,
+    this.livenessTokenExpiresAt,
+  });
+
+  factory ActiveLivenessResult.fromJson(Map<String, dynamic> json) {
+    final expiresAt = json['livenessTokenExpiresAt'] as String?;
+    return ActiveLivenessResult(
+      isLive: json['isLive'] as bool? ?? false,
+      overallScore: (json['overallScore'] as num? ?? 0).toDouble(),
+      framesAnalyzed: json['framesAnalyzed'] as int? ?? 0,
+      framesWithFace: json['framesWithFace'] as int? ?? 0,
+      challenges: LivenessChallenges.fromJson(
+          json['challenges'] as Map<String, dynamic>? ?? const {}),
+      livenessToken: json['livenessToken'] as String?,
+      livenessTokenExpiresAt:
+          expiresAt != null ? DateTime.parse(expiresAt) : null,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Face Attributes
 // ---------------------------------------------------------------------------
 
@@ -170,11 +255,16 @@ class BatchRegisterItem {
   final Map<String, dynamic>? metadata;
   final String? filename;
 
+  /// Token from `FacesApi.activeLiveness`; required by collections that
+  /// require liveness.
+  final String? livenessToken;
+
   const BatchRegisterItem({
     required this.externalId,
     required this.image,
     this.metadata,
     this.filename,
+    this.livenessToken,
   });
 }
 
