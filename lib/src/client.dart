@@ -10,6 +10,10 @@ import 'types.dart';
 
 const _defaultBaseUrl = 'https://api.livexface.com/api/v1';
 
+/// The API contract version (`/openapi.json` `info.version`) this release is
+/// validated against.
+const contractVersion = '1.0.0';
+
 final _keyRandom = Random.secure();
 final _jitter = Random();
 

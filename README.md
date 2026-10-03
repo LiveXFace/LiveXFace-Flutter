@@ -16,6 +16,12 @@ dependencies:
   livexface: ^0.1.0
 ```
 
+Validated against API contract 1.0.0 (`/openapi.json` `info.version`),
+exposed as `contractVersion`. The test suite checks every client method's HTTP
+method, path and required fields against the pinned `contract/openapi-1.0.0.json`;
+to move to a new contract, copy the release asset `openapi-<version>.json` into
+`contract/` and update `CONTRACT_VERSION` and `contractVersion`.
+
 ## Quick start
 
 ```dart
