@@ -12,8 +12,19 @@ sealed class LiveXFaceApiException implements Exception {
   /// `faces` for `MULTIPLE_FACES`.
   final Map<String, dynamic>? details;
 
+  /// The HTTP status of the response; null when none was received.
+  final int? statusCode;
+
+  /// Seconds the response's `Retry-After` header asked to wait (429 and 503);
+  /// null when it had none.
+  final int? retryAfter;
+
   const LiveXFaceApiException(this.message,
-      {this.code, this.requestId, this.details});
+      {this.code,
+      this.requestId,
+      this.details,
+      this.statusCode,
+      this.retryAfter});
 
   @override
   String toString() => 'LiveXFaceApiException(${code ?? 'unknown'}): $message';
@@ -22,61 +33,79 @@ sealed class LiveXFaceApiException implements Exception {
 /// The request was malformed or failed validation (HTTP 400 / 422).
 final class LiveXFaceValidationException extends LiveXFaceApiException {
   const LiveXFaceValidationException(super.message,
-      {super.code, super.requestId, super.details});
+      {super.code, super.requestId, super.details, super.statusCode});
 }
 
 /// Authentication failed — invalid or missing API key (HTTP 401).
 final class LiveXFaceUnauthorizedException extends LiveXFaceApiException {
   const LiveXFaceUnauthorizedException(super.message,
-      {super.code, super.requestId});
+      {super.code, super.requestId, super.details, super.statusCode});
 }
 
 /// The API key does not have access to this resource (HTTP 403).
 final class LiveXFaceForbiddenException extends LiveXFaceApiException {
   const LiveXFaceForbiddenException(super.message,
-      {super.code, super.requestId});
+      {super.code, super.requestId, super.details, super.statusCode});
 }
 
 /// The requested resource does not exist (HTTP 404).
 final class LiveXFaceNotFoundException extends LiveXFaceApiException {
   const LiveXFaceNotFoundException(super.message,
-      {super.code, super.requestId});
+      {super.code, super.requestId, super.details, super.statusCode});
 }
 
 /// No face was detected in the uploaded image (HTTP 422 NO_FACE_DETECTED).
 final class LiveXFaceNoFaceDetectedException extends LiveXFaceApiException {
   const LiveXFaceNoFaceDetectedException(
-      [String message = 'No face detected in image', String? requestId])
-      : super(message, code: 'NO_FACE_DETECTED', requestId: requestId);
+      [String message = 'No face detected in image',
+      String? requestId,
+      int statusCode = 422])
+      : super(message,
+            code: 'NO_FACE_DETECTED',
+            requestId: requestId,
+            statusCode: statusCode);
 }
 
 /// A spoof or non-live face was detected (HTTP 422 / liveness check failed).
 final class LiveXFaceSpoofDetectedException extends LiveXFaceApiException {
   const LiveXFaceSpoofDetectedException(
       [String message = 'Liveness check failed — spoof detected',
-      String? requestId])
-      : super(message, code: 'SPOOF_DETECTED', requestId: requestId);
+      String? requestId,
+      int statusCode = 422])
+      : super(message,
+            code: 'SPOOF_DETECTED',
+            requestId: requestId,
+            statusCode: statusCode);
 }
 
 /// Rate limit exceeded (HTTP 429).
 final class LiveXFaceRateLimitException extends LiveXFaceApiException {
   const LiveXFaceRateLimitException(
-      [String message = 'Rate limit exceeded', String? requestId])
-      : super(message, code: 'RATE_LIMIT_EXCEEDED', requestId: requestId);
+      [String message = 'Rate limit exceeded',
+      String? requestId,
+      int? retryAfter])
+      : super(message,
+            code: 'RATE_LIMIT_EXCEEDED',
+            requestId: requestId,
+            statusCode: 429,
+            retryAfter: retryAfter);
 }
 
 /// Plan quota exceeded — upgrade required (HTTP 402).
 final class LiveXFaceQuotaExceededException extends LiveXFaceApiException {
   const LiveXFaceQuotaExceededException(super.message,
-      {super.code, super.requestId});
+      {super.code, super.requestId, super.details, super.statusCode});
 }
 
-/// An unexpected server-side error occurred (HTTP 5xx).
+/// An unexpected server-side error occurred (HTTP 5xx), or a status the SDK
+/// has no dedicated type for (e.g. 409 `IDEMPOTENCY_KEY_IN_USE`).
 final class LiveXFaceServerException extends LiveXFaceApiException {
-  final int statusCode;
+  const LiveXFaceServerException(super.message, int statusCode,
+      {super.code, super.requestId, super.details, super.retryAfter})
+      : super(statusCode: statusCode);
 
-  const LiveXFaceServerException(super.message, this.statusCode,
-      {super.code, super.requestId});
+  @override
+  int get statusCode => super.statusCode!;
 
   @override
   String toString() => 'LiveXFaceServerException($statusCode): $message';

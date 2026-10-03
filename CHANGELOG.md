@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- `faces.batchRegister(collectionId:, items:, idempotencyKey:)` enrolls up to
+  20 faces synchronously (`POST /collections/{id}/faces/batch`) and returns a
+  `BatchResponse` (`succeeded`, `failed`, `results` of `BatchFaceResult`)
+- `faces.register`, `faces.batchRegister` and `faces.batchRegisterAsync`
+  accept an optional `idempotencyKey`, sent as the `Idempotency-Key` header; the top-level
+  `generateIdempotencyKey()` returns a random UUID v4
+- Opt-in retries: `LiveXFaceClient(maxRetries:, maxRetryDelay:)`. 429 and 503
+  honour `Retry-After`; network errors and other 5xx are retried only for
+  GET/PATCH/DELETE and keyed requests; enrolment and batch calls reuse one key
+  across attempts. Off by default
+- `LiveXFaceApiException` exposes `statusCode` and `retryAfter`; the
+  401/402/403/404 and server exceptions now carry `details` too
 - `faces.activeLiveness(collectionId:, frames:)` runs the multi-frame active
   liveness check (blink, head turn, passive anti-spoof) and returns an
   `ActiveLivenessResult` with a single-use `livenessToken` when it passes
