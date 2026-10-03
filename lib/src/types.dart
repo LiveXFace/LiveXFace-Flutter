@@ -245,7 +245,7 @@ class FaceAttributes {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Async batch registration
+// Batch registration
 // ---------------------------------------------------------------------------
 
 /// One face to enroll in a batch (sync or async) registration request.
@@ -266,6 +266,46 @@ class BatchRegisterItem {
     this.filename,
     this.livenessToken,
   });
+}
+
+/// Outcome for one item of a synchronous batch registration: [face] when it
+/// was enrolled, else [error].
+class BatchFaceResult {
+  final String externalId;
+  final Face? face;
+  final String? error;
+
+  const BatchFaceResult({required this.externalId, this.face, this.error});
+
+  factory BatchFaceResult.fromJson(Map<String, dynamic> json) =>
+      BatchFaceResult(
+        externalId: json['externalId'] as String? ?? '',
+        face: json['face'] == null
+            ? null
+            : Face.fromJson(json['face'] as Map<String, dynamic>),
+        error: json['error'] as String?,
+      );
+}
+
+/// The result of a synchronous batch registration.
+class BatchResponse {
+  final int succeeded;
+  final int failed;
+  final List<BatchFaceResult> results;
+
+  const BatchResponse({
+    required this.succeeded,
+    required this.failed,
+    required this.results,
+  });
+
+  factory BatchResponse.fromJson(Map<String, dynamic> json) => BatchResponse(
+        succeeded: json['succeeded'] as int? ?? 0,
+        failed: json['failed'] as int? ?? 0,
+        results: (json['results'] as List<dynamic>? ?? const [])
+            .map((r) => BatchFaceResult.fromJson(r as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 /// Outcome for one image of an async batch job.
