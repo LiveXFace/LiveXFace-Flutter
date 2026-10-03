@@ -163,7 +163,9 @@ class LiveXFaceClient {
           throw LiveXFaceSpoofDetectedException(msg, requestId);
         }
         throw LiveXFaceValidationException(msg,
-            code: code, requestId: requestId);
+            code: code,
+            requestId: requestId,
+            details: err?['details'] as Map<String, dynamic>?);
       case 401:
         throw LiveXFaceUnauthorizedException(msg,
             code: code, requestId: requestId);

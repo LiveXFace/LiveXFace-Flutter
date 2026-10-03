@@ -8,7 +8,12 @@ sealed class LiveXFaceApiException implements Exception {
   /// The API's request ID. Quote it when contacting support.
   final String? requestId;
 
-  const LiveXFaceApiException(this.message, {this.code, this.requestId});
+  /// Machine-readable context when the API sends it, e.g. `faceCount` and
+  /// `faces` for `MULTIPLE_FACES`.
+  final Map<String, dynamic>? details;
+
+  const LiveXFaceApiException(this.message,
+      {this.code, this.requestId, this.details});
 
   @override
   String toString() => 'LiveXFaceApiException(${code ?? 'unknown'}): $message';
@@ -17,7 +22,7 @@ sealed class LiveXFaceApiException implements Exception {
 /// The request was malformed or failed validation (HTTP 400 / 422).
 final class LiveXFaceValidationException extends LiveXFaceApiException {
   const LiveXFaceValidationException(super.message,
-      {super.code, super.requestId});
+      {super.code, super.requestId, super.details});
 }
 
 /// Authentication failed — invalid or missing API key (HTTP 401).
