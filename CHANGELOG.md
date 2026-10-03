@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `contractVersion` names the API contract (`/openapi.json` `info.version`)
+  this release is validated against: 1.0.0, pinned in `contract/`
 - `faces.batchRegister(collectionId:, items:, idempotencyKey:)` enrolls up to
   20 faces synchronously (`POST /collections/{id}/faces/batch`) and returns a
   `BatchResponse` (`succeeded`, `failed`, `results` of `BatchFaceResult`)
