@@ -13,12 +13,12 @@ Official Flutter/Dart SDK for [LiveXFace](https://livexface.com) — Face Recogn
 
 ```yaml
 dependencies:
-  livexface: ^0.1.0
+  livexface: ^1.0.0
 ```
 
-Validated against API contract 1.0.0 (`/openapi.json` `info.version`),
+Validated against API contract 2.0.0 (`/openapi.json` `info.version`),
 exposed as `contractVersion`. The test suite checks every client method's HTTP
-method, path and required fields against the pinned `contract/openapi-1.0.0.json`;
+method, path and required fields against the pinned `contract/openapi-2.0.0.json`;
 to move to a new contract, copy the release asset `openapi-<version>.json` into
 `contract/` and update `CONTRACT_VERSION` and `contractVersion`.
 
@@ -49,15 +49,27 @@ for (final match in result.matches) {
 
 ### Liveness-protected enrolment
 
-Collections that require liveness refuse enrolment without a token from an
-active-liveness check (5 to 50 frames of the person blinking and turning
-their head). The token is single-use, valid for 5 minutes and bound to the
-collection.
+Collections that require liveness refuse enrolment without a liveness token,
+and only a completed liveness session earns one. The server picks the steps
+(one blink and one or two head turns, in random order); show them to the
+person, capture 5 to 50 frames while they perform them, and submit the frames
+once, before the session expires (60 seconds by default). `turn_left` and
+`turn_right` mean the person's own left and right: pass `mirrored: true` when
+your frames are mirrored like a selfie preview. The token is single-use, valid
+for 5 minutes and bound to the collection.
 
 ```dart
-final check = await client.faces.activeLiveness(
+final session =
+    await client.faces.createLivenessSession(collectionId: collectionId);
+
+// Show each prompt in order and capture frames while the person follows them.
+final frames = await captureWhilePrompting(session.challenges); // List<Uint8List>
+
+final check = await client.faces.completeLivenessSession(
   collectionId: collectionId,
-  frames: frames, // List<Uint8List>
+  sessionId: session.sessionId,
+  frames: frames,
+  mirrored: true, // front-camera frames, as previewed
 );
 if (check.isLive) {
   await client.faces.register(
@@ -66,8 +78,23 @@ if (check.isLive) {
     externalId: 'user-123',
     livenessToken: check.livenessToken,
   );
+} else {
+  // check.steps says which step was not seen; start a new session.
 }
 ```
+
+A session is judged once: completing it again, after it expired, or on
+another collection fails with `LIVENESS_SESSION_INVALID` (422, a
+`LiveXFaceValidationException`); create a new session. Fewer than 5 frames is
+`IMAGE_REQUIRED` (400) and keeps the session. A 503 `SERVICE_BUSY` arrives
+after the server used the session up, so it also means starting a new session.
+With `maxRetries` set, `completeLivenessSession` is retried only on 429 (the
+rate limiter answers before the session is touched), never on 503, another
+5xx or a network error: a repeat would only come back as
+`LIVENESS_SESSION_INVALID` and hide the cause.
+
+`activeLiveness` still runs the same checks on a burst of frames without a
+session, but returns a verdict only and never a token.
 
 Enrolment then fails with `LIVENESS_TOKEN_REQUIRED` (400) when no token is
 sent, `LIVENESS_TOKEN_INVALID` (422) for a spent, expired or foreign token,
@@ -126,6 +153,9 @@ failures throw `LiveXFaceNetworkException`. Every API error carries the
 Each also exposes `statusCode`, `code`, `message`, `details` (when the API
 sent any) and `retryAfter`: the seconds a 429 or 503 response's `Retry-After`
 header asked you to wait, or `null`.
+Codes without a subclass of their own arrive on the class for their status;
+for example `LIVENESS_SESSION_INVALID` and `LIVENESS_TOKEN_INVALID` are
+`LiveXFaceValidationException`s, so check `e.code`.
 
 ## Idempotent requests
 
@@ -152,7 +182,9 @@ Retries are off by default. With `maxRetries` set, the client retries 429 and
 503 after their `Retry-After` (capped at `maxRetryDelay`), or after a jittered
 exponential backoff when there is none. Network errors and other 5xx are
 retried only for GET, PATCH and DELETE calls and for calls that carry an
-idempotency key; other 4xx are never retried. Enrolment and batch calls send
+idempotency key; other 4xx are never retried. `completeLivenessSession` is the
+exception: it is retried on 429 only (see
+[Liveness-protected enrolment](#liveness-protected-enrolment)). Enrolment and batch calls send
 the same key on every attempt, generating one when you gave none.
 
 ```dart

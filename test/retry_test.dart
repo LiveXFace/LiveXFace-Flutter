@@ -228,6 +228,53 @@ void main() {
     });
   });
 
+  group('liveness-session completion', () {
+    Future<LivenessSessionResult> complete(LiveXFaceClient c) =>
+        c.faces.completeLivenessSession(
+            collectionId: 'col_1',
+            sessionId: 'lvs_1',
+            frames: List.filled(5, _jpeg));
+
+    test('is not retried on a dropped connection', () async {
+      final c = client([null, null], maxRetries: 3);
+      await expectLater(complete(c), throwsA(isA<LiveXFaceNetworkException>()));
+      expect(requests, hasLength(1));
+      expect(requests.single.headers['idempotency-key'], isNull);
+      expect(sleeps, isEmpty);
+    });
+
+    test('is not retried on a 503: the session is already used up', () async {
+      final c = client([
+        _error(503, 'SERVICE_BUSY', {'retry-after': '1'}),
+        _json(200, {
+          'success': true,
+          'data': {'isLive': true}
+        }),
+      ], maxRetries: 3);
+      await expectLater(
+          complete(c),
+          throwsA(isA<LiveXFaceServerException>()
+              .having((e) => e.statusCode, 'statusCode', 503)
+              .having((e) => e.code, 'code', 'SERVICE_BUSY')));
+      expect(requests, hasLength(1));
+      expect(sleeps, isEmpty);
+    });
+
+    test('is retried on a 429 after Retry-After', () async {
+      final c = client([
+        _error(429, 'RATE_LIMIT_EXCEEDED', {'retry-after': '2'}),
+        _json(200, {
+          'success': true,
+          'data': {'isLive': true, 'livenessToken': 'lvt_abc'},
+        }),
+      ], maxRetries: 3);
+      final result = await complete(c);
+      expect(result.livenessToken, 'lvt_abc');
+      expect(requests, hasLength(2));
+      expect(sleeps, [const Duration(seconds: 2)]);
+    });
+  });
+
   group('batchRegister', () {
     final items = [
       BatchRegisterItem(

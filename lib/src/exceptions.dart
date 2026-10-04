@@ -30,7 +30,9 @@ sealed class LiveXFaceApiException implements Exception {
   String toString() => 'LiveXFaceApiException(${code ?? 'unknown'}): $message';
 }
 
-/// The request was malformed or failed validation (HTTP 400 / 422).
+/// The request was malformed or failed validation (HTTP 400 / 422). Tell the
+/// cases apart by [code], e.g. `IMAGE_REQUIRED`, `LIVENESS_TOKEN_INVALID` or
+/// `LIVENESS_SESSION_INVALID`.
 final class LiveXFaceValidationException extends LiveXFaceApiException {
   const LiveXFaceValidationException(super.message,
       {super.code, super.requestId, super.details, super.statusCode});

@@ -39,7 +39,7 @@ void main() {
       );
 
   group('activeLiveness', () {
-    test('sends frame_0..frame_n to the right URL and parses the token',
+    test('sends frame_0..frame_n to the right URL and parses the verdict',
         () async {
       final client = clientReturning(_ok({
         'isLive': true,
@@ -47,8 +47,6 @@ void main() {
         'framesAnalyzed': 6,
         'framesWithFace': 6,
         'challenges': _challenges(passed: true),
-        'livenessToken': 'lvt_abc',
-        'livenessTokenExpiresAt': '2026-09-28T10:05:00Z',
       }));
 
       final result = await client.faces.activeLiveness(
@@ -70,8 +68,6 @@ void main() {
       expect(result.overallScore, 0.93);
       expect(result.framesAnalyzed, 6);
       expect(result.framesWithFace, 6);
-      expect(result.livenessToken, 'lvt_abc');
-      expect(result.livenessTokenExpiresAt, DateTime.utc(2026, 9, 28, 10, 5));
       expect(result.challenges.blink.passed, isTrue);
       expect(result.challenges.blink.metrics['blinkCount'], 2);
       expect(result.challenges.headTurn.metrics['yawRange'], 31.5);
@@ -79,7 +75,30 @@ void main() {
       expect(result.challenges.passiveAntispoof.available, isFalse);
     });
 
-    test('a failed check parses with no token', () async {
+    test('the result has no token, even if a server sends one', () async {
+      final client = clientReturning(_ok({
+        'isLive': true,
+        'overallScore': 0.93,
+        'framesAnalyzed': 5,
+        'framesWithFace': 5,
+        'challenges': _challenges(passed: true),
+        'livenessToken': 'lvt_abc',
+        'livenessTokenExpiresAt': '2026-09-28T10:05:00Z',
+      }));
+
+      final result = await client.faces.activeLiveness(
+        collectionId: 'col_1',
+        frames: List.filled(5, _jpeg),
+      );
+
+      expect(result, isNot(isA<LivenessSessionResult>()));
+      expect(() => (result as dynamic).livenessToken,
+          throwsA(isA<NoSuchMethodError>()));
+      expect(() => (result as dynamic).livenessTokenExpiresAt,
+          throwsA(isA<NoSuchMethodError>()));
+    });
+
+    test('a failed check parses', () async {
       final client = clientReturning(_ok({
         'isLive': false,
         'overallScore': 0.21,
@@ -94,8 +113,6 @@ void main() {
       );
 
       expect(result.isLive, isFalse);
-      expect(result.livenessToken, isNull);
-      expect(result.livenessTokenExpiresAt, isNull);
       expect(result.challenges.blink.passed, isFalse);
       expect(result.challenges.headTurn.passed, isFalse);
     });
@@ -114,6 +131,143 @@ void main() {
             .activeLiveness(collectionId: 'col_1', frames: [_jpeg, _jpeg]),
         throwsA(isA<LiveXFaceValidationException>()
             .having((e) => e.code, 'code', 'IMAGE_REQUIRED')),
+      );
+    });
+  });
+
+  group('liveness sessions', () {
+    test('create posts no body and returns the challenges in order', () async {
+      final client = clientReturning(http.Response(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'sessionId': 'lvs_abc',
+            'challenges': [
+              {'type': 'turn_left'},
+              {'type': 'blink'},
+              {'type': 'turn_right'},
+            ],
+            'expiresAt': '2026-10-03T10:01:00Z',
+          },
+        }),
+        201,
+        headers: {'content-type': 'application/json'},
+      ));
+
+      final session =
+          await client.faces.createLivenessSession(collectionId: 'col_1');
+
+      expect(captured.method, 'POST');
+      expect(captured.url.toString(),
+          '$_base/collections/col_1/liveness-sessions');
+      expect(captured.bodyBytes, isEmpty);
+      expect(captured.headers['Idempotency-Key'], isNull);
+      expect(session.sessionId, 'lvs_abc');
+      expect(session.challenges, ['turn_left', 'blink', 'turn_right']);
+      expect(session.expiresAt, DateTime.utc(2026, 10, 3, 10, 1));
+    });
+
+    test('complete sends frames and mirrored, and parses steps and token',
+        () async {
+      final client = clientReturning(_ok({
+        'isLive': true,
+        'overallScore': 0.91,
+        'framesAnalyzed': 25,
+        'framesWithFace': 25,
+        'challenges': _challenges(passed: true),
+        'steps': [
+          {'type': 'turn_left', 'passed': true},
+          {'type': 'blink', 'passed': true},
+        ],
+        'livenessToken': 'lvt_abc',
+        'livenessTokenExpiresAt': '2026-10-03T10:06:00Z',
+      }));
+
+      final result = await client.faces.completeLivenessSession(
+        collectionId: 'col_1',
+        sessionId: 'lvs_abc',
+        frames: List.filled(25, _jpeg),
+        mirrored: true,
+      );
+
+      expect(captured.method, 'POST');
+      expect(captured.url.toString(),
+          '$_base/collections/col_1/liveness-sessions/lvs_abc');
+      expect(captured.headers['Idempotency-Key'], isNull);
+      final body = _body(captured);
+      for (var i = 0; i < 25; i++) {
+        expect(body, contains('name="frame_$i"'));
+      }
+      expect(body, isNot(contains('name="frame_25"')));
+      expect(body, contains('name="mirrored"\r\n\r\ntrue\r\n'));
+
+      expect(result.isLive, isTrue);
+      expect(result.overallScore, 0.91);
+      expect(result.framesAnalyzed, 25);
+      expect(result.challenges.blink.passed, isTrue);
+      expect([for (final s in result.steps) (s.type, s.passed)],
+          [('turn_left', true), ('blink', true)]);
+      expect(result.livenessToken, 'lvt_abc');
+      expect(result.livenessTokenExpiresAt, DateTime.utc(2026, 10, 3, 10, 6));
+    });
+
+    test('mirrored defaults to false', () async {
+      final client = clientReturning(_ok({'isLive': false}));
+      await client.faces.completeLivenessSession(
+          collectionId: 'col_1',
+          sessionId: 'lvs_abc',
+          frames: List.filled(5, _jpeg));
+
+      expect(_body(captured), contains('name="mirrored"\r\n\r\nfalse\r\n'));
+    });
+
+    test('a failing completion has no token', () async {
+      final client = clientReturning(_ok({
+        'isLive': false,
+        'overallScore': 0.4,
+        'framesAnalyzed': 20,
+        'framesWithFace': 20,
+        'challenges': _challenges(passed: false),
+        'steps': [
+          {'type': 'blink', 'passed': true},
+          {'type': 'turn_right', 'passed': false},
+        ],
+      }));
+
+      final result = await client.faces.completeLivenessSession(
+          collectionId: 'col_1',
+          sessionId: 'lvs_abc',
+          frames: List.filled(20, _jpeg));
+
+      expect(result.isLive, isFalse);
+      expect(result.steps.last.type, 'turn_right');
+      expect(result.steps.last.passed, isFalse);
+      expect(result.livenessToken, isNull);
+      expect(result.livenessTokenExpiresAt, isNull);
+    });
+
+    test('LIVENESS_SESSION_INVALID arrives as a validation error', () async {
+      final client = clientReturning(http.Response(
+        jsonEncode({
+          'success': false,
+          'requestId': 'req-422',
+          'error': {
+            'code': 'LIVENESS_SESSION_INVALID',
+            'message': 'session expired or already used',
+          },
+        }),
+        422,
+      ));
+
+      await expectLater(
+        client.faces.completeLivenessSession(
+            collectionId: 'col_1',
+            sessionId: 'lvs_used',
+            frames: List.filled(5, _jpeg)),
+        throwsA(isA<LiveXFaceValidationException>()
+            .having((e) => e.code, 'code', 'LIVENESS_SESSION_INVALID')
+            .having((e) => e.statusCode, 'statusCode', 422)
+            .having((e) => e.requestId, 'requestId', 'req-422')),
       );
     });
   });

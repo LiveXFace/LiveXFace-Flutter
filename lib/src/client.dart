@@ -12,7 +12,7 @@ const _defaultBaseUrl = 'https://api.livexface.com/api/v1';
 
 /// The API contract version (`/openapi.json` `info.version`) this release is
 /// validated against.
-const contractVersion = '1.0.0';
+const contractVersion = '2.0.0';
 
 final _keyRandom = Random.secure();
 final _jitter = Random();
@@ -51,6 +51,7 @@ class LiveXFaceClient {
   /// off. 429 and 503 are retried after `Retry-After` (or a jittered
   /// backoff); network errors and other 5xx only for GET, PATCH, DELETE and
   /// requests with an idempotency key; other 4xx never.
+  /// [FacesApi.completeLivenessSession] is retried on 429 only.
   final int maxRetries;
 
   /// The longest single wait between retries.
@@ -92,6 +93,10 @@ class LiveXFaceClient {
           () =>
               http.Request('GET', _uri(path, query))..headers.addAll(_headers));
 
+  /// POST with no body and no idempotency key.
+  Future<Map<String, dynamic>> _post(String path) => _send('POST $path',
+      () => http.Request('POST', _uri(path))..headers.addAll(_headers));
+
   Future<Map<String, dynamic>> _postMultipart(
     String path,
     Uint8List imageBytes, {
@@ -114,7 +119,7 @@ class LiveXFaceClient {
   }
 
   /// Multipart POST with multiple image files (batch registration,
-  /// active liveness).
+  /// active liveness, liveness sessions).
   ///
   /// [files] is called once per attempt: a [http.MultipartFile] can only be
   /// sent once, so a retry needs fresh ones.
@@ -123,8 +128,9 @@ class LiveXFaceClient {
     List<http.MultipartFile> Function() files, {
     Map<String, String>? fields,
     String? idempotencyKey,
+    bool retry503 = true,
   }) =>
-      _send('POST $path (multipart)', () {
+      _send('POST $path (multipart)', retry503: retry503, () {
         final req = http.MultipartRequest('POST', _uri(path))
           ..headers.addAll(_headers)
           ..files.addAll(files());
@@ -145,11 +151,13 @@ class LiveXFaceClient {
   String? _idempotencyKey(String? key) =>
       key ?? (maxRetries > 0 ? generateIdempotencyKey() : null);
 
-  /// Sends the request [build] makes, retrying per [maxRetries]: 429 and 503
-  /// always; network errors and other 5xx only when repeating is harmless
-  /// (GET, PATCH, DELETE, or a request with an `Idempotency-Key`).
+  /// Sends the request [build] makes, retrying per [maxRetries]: 429 always,
+  /// 503 unless [retry503] is false; network errors and other 5xx only when
+  /// repeating is harmless (GET, PATCH, DELETE, or a request with an
+  /// `Idempotency-Key`).
   Future<Map<String, dynamic>> _send(
-      String label, http.BaseRequest Function() build) async {
+      String label, http.BaseRequest Function() build,
+      {bool retry503 = true}) async {
     for (var attempt = 0;; attempt++) {
       final req = build();
       final repeatable =
@@ -161,7 +169,7 @@ class LiveXFaceClient {
         return _handle(res);
       } on LiveXFaceApiException catch (e) {
         final status = e.statusCode ?? 0;
-        final throttled = status == 429 || status == 503;
+        final throttled = status == 429 || (retry503 && status == 503);
         if (attempt >= maxRetries ||
             !(throttled || (repeatable && status >= 500))) {
           rethrow;
@@ -285,9 +293,10 @@ class FacesApi {
   /// Enroll a new face into a collection.
   ///
   /// A collection that requires liveness refuses enrolment without a
-  /// [livenessToken] from [activeLiveness] (`LIVENESS_TOKEN_REQUIRED`); a
-  /// spent, expired or foreign token is `LIVENESS_TOKEN_INVALID`, and a token
-  /// earned by a different face is `LIVENESS_FACE_MISMATCH`.
+  /// [livenessToken] from [completeLivenessSession]: no token is
+  /// `LIVENESS_TOKEN_REQUIRED`, a spent, expired or foreign token is
+  /// `LIVENESS_TOKEN_INVALID`, and a token earned by a different face is
+  /// `LIVENESS_FACE_MISMATCH`.
   ///
   /// With an [idempotencyKey] (see [generateIdempotencyKey]) a repeat of the
   /// same call within 24 hours returns the first result instead of enrolling
@@ -372,31 +381,73 @@ class FacesApi {
   /// Active liveness — analyse a short burst of frames (5 to 50, JPEG or
   /// PNG) for a blink, a head turn and passive anti-spoofing.
   ///
-  /// When the check passes, the result carries a single-use
-  /// [ActiveLivenessResult.livenessToken], valid for 5 minutes and bound to
-  /// this organization and collection, to pass to [register] or a batch item.
+  /// This stateless check returns a verdict only and issues no liveness
+  /// token; to enrol into a collection that requires liveness, use
+  /// [createLivenessSession] and [completeLivenessSession].
   Future<ActiveLivenessResult> activeLiveness({
     required String collectionId,
     required List<Uint8List> frames,
   }) async {
-    List<http.MultipartFile> files() => [
-          for (var i = 0; i < frames.length; i++)
-            http.MultipartFile.fromBytes(
-              'frame_$i',
-              frames[i],
-              filename: 'frame_$i.jpg',
-              contentType: _client._mediaType(
-                  lookupMimeType('frame_$i.jpg', headerBytes: frames[i]) ??
-                      'image/jpeg'),
-            ),
-        ];
-
     final data = await _client._postMultipartFiles(
       '/collections/$collectionId/active-liveness',
-      files,
+      () => _frameFiles(frames),
     );
     return ActiveLivenessResult.fromJson(data);
   }
+
+  /// Start a liveness session: the server picks the steps the person must
+  /// perform, in order ([LivenessSession.challenges]). Show them, capture
+  /// frames while the person performs them, and pass the frames to
+  /// [completeLivenessSession] before [LivenessSession.expiresAt].
+  Future<LivenessSession> createLivenessSession({
+    required String collectionId,
+  }) async {
+    final data =
+        await _client._post('/collections/$collectionId/liveness-sessions');
+    return LivenessSession.fromJson(data);
+  }
+
+  /// Submit [frames] (5 to 50, in capture order) for a session, once. Set
+  /// [mirrored] when the frames are horizontally mirrored, as a selfie
+  /// preview is.
+  ///
+  /// When every step was seen in order, the result carries a single-use
+  /// [LivenessSessionResult.livenessToken] to pass to [register] or a batch
+  /// item. Any submission except one with fewer than 5 frames (400
+  /// `IMAGE_REQUIRED`) uses the session up, so with [LiveXFaceClient.maxRetries]
+  /// set this call is retried only on 429, never on a network error or a 5xx
+  /// (503 included). A spent, expired or unknown session is 422
+  /// `LIVENESS_SESSION_INVALID`; after that, or a 503 `SERVICE_BUSY`, create
+  /// a new session.
+  Future<LivenessSessionResult> completeLivenessSession({
+    required String collectionId,
+    required String sessionId,
+    required List<Uint8List> frames,
+    bool mirrored = false,
+  }) async {
+    final data = await _client._postMultipartFiles(
+      '/collections/$collectionId/liveness-sessions/$sessionId',
+      () => _frameFiles(frames),
+      fields: {'mirrored': '$mirrored'},
+      // A 503 comes after the session was used up: a retry would only turn
+      // it into LIVENESS_SESSION_INVALID. A 429 comes before, so it is safe.
+      retry503: false,
+    );
+    return LivenessSessionResult.fromJson(data);
+  }
+
+  /// [frames] as `frame_0` … `frame_n` files, built fresh for each attempt.
+  List<http.MultipartFile> _frameFiles(List<Uint8List> frames) => [
+        for (var i = 0; i < frames.length; i++)
+          http.MultipartFile.fromBytes(
+            'frame_$i',
+            frames[i],
+            filename: 'frame_$i.jpg',
+            contentType: _client._mediaType(
+                lookupMimeType('frame_$i.jpg', headerBytes: frames[i]) ??
+                    'image/jpeg'),
+          ),
+      ];
 
   /// Face attribute detection — age and gender.
   Future<FaceAttributes> attributes({
