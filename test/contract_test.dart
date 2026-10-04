@@ -49,6 +49,13 @@ final _calls = <String, Future<Object?> Function(LiveXFaceClient)>{
       c.faces.liveness(collectionId: 'col_1', image: _jpeg, filename: 'a.jpg'),
   'FacesApi.activeLiveness': (c) => c.faces
       .activeLiveness(collectionId: 'col_1', frames: List.filled(5, _jpeg)),
+  'FacesApi.createLivenessSession': (c) =>
+      c.faces.createLivenessSession(collectionId: 'col_1'),
+  'FacesApi.completeLivenessSession': (c) => c.faces.completeLivenessSession(
+      collectionId: 'col_1',
+      sessionId: 'lvs_1',
+      frames: List.filled(5, _jpeg),
+      mirrored: true),
   'FacesApi.attributes': (c) => c.faces
       .attributes(collectionId: 'col_1', image: _jpeg, filename: 'a.jpg'),
   'FacesApi.delete': (c) =>

@@ -175,6 +175,8 @@ class LivenessChallenges {
   }
 }
 
+/// The verdict of the stateless active-liveness check. It never carries a
+/// liveness token: only a completed [LivenessSession] earns one.
 class ActiveLivenessResult {
   final bool isLive;
   final double overallScore;
@@ -182,29 +184,103 @@ class ActiveLivenessResult {
   final int framesWithFace;
   final LivenessChallenges challenges;
 
-  /// Single-use enrolment token, present only when the check passed.
-  final String? livenessToken;
-  final DateTime? livenessTokenExpiresAt;
-
   const ActiveLivenessResult({
     required this.isLive,
     required this.overallScore,
     required this.framesAnalyzed,
     required this.framesWithFace,
     required this.challenges,
+  });
+
+  factory ActiveLivenessResult.fromJson(Map<String, dynamic> json) =>
+      ActiveLivenessResult(
+        isLive: json['isLive'] as bool? ?? false,
+        overallScore: (json['overallScore'] as num? ?? 0).toDouble(),
+        framesAnalyzed: json['framesAnalyzed'] as int? ?? 0,
+        framesWithFace: json['framesWithFace'] as int? ?? 0,
+        challenges: LivenessChallenges.fromJson(
+            json['challenges'] as Map<String, dynamic>? ?? const {}),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Liveness sessions
+// ---------------------------------------------------------------------------
+
+/// A liveness session: the steps the person must perform, in order, before
+/// [expiresAt] (60 seconds after creation by default).
+class LivenessSession {
+  final String sessionId;
+
+  /// Step types in order: `blink`, `turn_left` or `turn_right`. Left and
+  /// right are the person's own, whatever the preview shows.
+  final List<String> challenges;
+  final DateTime expiresAt;
+
+  const LivenessSession({
+    required this.sessionId,
+    required this.challenges,
+    required this.expiresAt,
+  });
+
+  factory LivenessSession.fromJson(Map<String, dynamic> json) =>
+      LivenessSession(
+        sessionId: json['sessionId'] as String,
+        challenges: [
+          for (final c in json['challenges'] as List<dynamic>? ?? const [])
+            (c as Map<String, dynamic>)['type'] as String,
+        ],
+        expiresAt: DateTime.parse(json['expiresAt'] as String),
+      );
+}
+
+/// One step of a completed session and whether it was seen, in order.
+class LivenessStep {
+  final String type;
+  final bool passed;
+
+  const LivenessStep({required this.type, required this.passed});
+
+  factory LivenessStep.fromJson(Map<String, dynamic> json) => LivenessStep(
+        type: json['type'] as String? ?? '',
+        passed: json['passed'] as bool? ?? false,
+      );
+}
+
+/// The verdict on a liveness session: the active-liveness fields plus
+/// [steps], and a token when it passed.
+class LivenessSessionResult extends ActiveLivenessResult {
+  final List<LivenessStep> steps;
+
+  /// Single-use enrolment token, present only when the session passed. Valid
+  /// for 5 minutes and bound to the session's collection.
+  final String? livenessToken;
+  final DateTime? livenessTokenExpiresAt;
+
+  const LivenessSessionResult({
+    required super.isLive,
+    required super.overallScore,
+    required super.framesAnalyzed,
+    required super.framesWithFace,
+    required super.challenges,
+    required this.steps,
     this.livenessToken,
     this.livenessTokenExpiresAt,
   });
 
-  factory ActiveLivenessResult.fromJson(Map<String, dynamic> json) {
+  factory LivenessSessionResult.fromJson(Map<String, dynamic> json) {
+    final base = ActiveLivenessResult.fromJson(json);
     final expiresAt = json['livenessTokenExpiresAt'] as String?;
-    return ActiveLivenessResult(
-      isLive: json['isLive'] as bool? ?? false,
-      overallScore: (json['overallScore'] as num? ?? 0).toDouble(),
-      framesAnalyzed: json['framesAnalyzed'] as int? ?? 0,
-      framesWithFace: json['framesWithFace'] as int? ?? 0,
-      challenges: LivenessChallenges.fromJson(
-          json['challenges'] as Map<String, dynamic>? ?? const {}),
+    return LivenessSessionResult(
+      isLive: base.isLive,
+      overallScore: base.overallScore,
+      framesAnalyzed: base.framesAnalyzed,
+      framesWithFace: base.framesWithFace,
+      challenges: base.challenges,
+      steps: [
+        for (final s in json['steps'] as List<dynamic>? ?? const [])
+          LivenessStep.fromJson(s as Map<String, dynamic>),
+      ],
       livenessToken: json['livenessToken'] as String?,
       livenessTokenExpiresAt:
           expiresAt != null ? DateTime.parse(expiresAt) : null,
@@ -255,8 +331,8 @@ class BatchRegisterItem {
   final Map<String, dynamic>? metadata;
   final String? filename;
 
-  /// Token from `FacesApi.activeLiveness`; required by collections that
-  /// require liveness.
+  /// Token from `FacesApi.completeLivenessSession`; required by collections
+  /// that require liveness.
   final String? livenessToken;
 
   const BatchRegisterItem({
