@@ -364,6 +364,23 @@ class FacesApi {
     return IdentifyResult.fromJson(data);
   }
 
+  /// Search for matching faces across multiple or all collections.
+  Future<CrossCollectionSearchResult> search({
+    required Uint8List image,
+    List<String>? collectionIds,
+    int topK = 5,
+    double? threshold,
+    String? filename,
+  }) async {
+    final fields = <String, String>{'top_k': '$topK'};
+    if (collectionIds != null && collectionIds.isNotEmpty)
+      fields['collection_ids'] = collectionIds.join(',');
+    if (threshold != null) fields['threshold'] = threshold.toString();
+    final data = await _client._postMultipart('/search', image,
+        fields: fields, filename: filename);
+    return CrossCollectionSearchResult.fromJson(data);
+  }
+
   /// Liveness detection — determine whether the presented face is live.
   Future<LivenessResult> liveness({
     required String collectionId,

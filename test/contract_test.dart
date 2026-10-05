@@ -45,6 +45,12 @@ final _calls = <String, Future<Object?> Function(LiveXFaceClient)>{
       topK: 3,
       threshold: 0.5,
       filename: 'a.jpg'),
+  'FacesApi.search': (c) => c.faces.search(
+      image: _jpeg,
+      collectionIds: ['col_1', 'col_2'],
+      topK: 3,
+      threshold: 0.5,
+      filename: 'a.jpg'),
   'FacesApi.liveness': (c) =>
       c.faces.liveness(collectionId: 'col_1', image: _jpeg, filename: 'a.jpg'),
   'FacesApi.activeLiveness': (c) => c.faces

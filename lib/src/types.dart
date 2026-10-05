@@ -102,6 +102,69 @@ class IdentifyResult {
       );
 }
 
+class CrossCollectionSearchMatch extends IdentifyMatch {
+  final String collectionId;
+
+  const CrossCollectionSearchMatch({
+    required super.faceId,
+    required super.externalId,
+    required super.confidence,
+    super.metadata,
+    required this.collectionId,
+  });
+
+  factory CrossCollectionSearchMatch.fromJson(Map<String, dynamic> json) =>
+      CrossCollectionSearchMatch(
+        faceId: json['faceId'] as String,
+        externalId: json['externalId'] as String? ?? '',
+        confidence: (json['confidence'] as num).toDouble(),
+        metadata: json['metadata'] as Map<String, dynamic>?,
+        collectionId: json['collectionId'] as String? ?? '',
+      );
+}
+
+class SkippedCollection {
+  final String id;
+  final String name;
+  final String reason;
+
+  const SkippedCollection(
+      {required this.id, required this.name, required this.reason});
+
+  factory SkippedCollection.fromJson(Map<String, dynamic> json) =>
+      SkippedCollection(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        reason: json['reason'] as String? ?? '',
+      );
+}
+
+class CrossCollectionSearchResult {
+  final List<CrossCollectionSearchMatch> matches;
+  final int queryTimeMs;
+  final int collectionsSearched;
+  final List<SkippedCollection> skippedCollections;
+
+  const CrossCollectionSearchResult(
+      {required this.matches,
+      required this.queryTimeMs,
+      required this.collectionsSearched,
+      required this.skippedCollections});
+
+  factory CrossCollectionSearchResult.fromJson(Map<String, dynamic> json) =>
+      CrossCollectionSearchResult(
+        matches: (json['matches'] as List<dynamic>? ?? [])
+            .map((e) =>
+                CrossCollectionSearchMatch.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        queryTimeMs: json['queryTimeMs'] as int? ?? 0,
+        collectionsSearched: json['collectionsSearched'] as int? ?? 0,
+        skippedCollections: (json['skippedCollections'] as List<dynamic>? ?? [])
+            .map((e) => SkippedCollection.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 // ---------------------------------------------------------------------------
 // Liveness
 // ---------------------------------------------------------------------------
